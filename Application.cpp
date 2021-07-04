@@ -5,11 +5,17 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
+const GLuint WIDTH = 1024, HEIGHT = 768;
+const float toRadians = 3.14159265f / 180.0f;
+
 GLuint VAO, VBO, shader, uniformModel;
+
 bool direction = true;
 float triOffset = 0.0f;
 float triMaxOffset = 0.7f;
 float triIncrement = 0.0005f;
+
+float curAngle = 0.0f;
 
 // shaders
 static const char* vertexShader =
@@ -17,7 +23,7 @@ static const char* vertexShader =
 	"layout(location = 0) in vec3 pos;\n"
 	"uniform mat4 model;\n"
 	"void main() {\n"
-		"gl_Position = model * vec4(0.4 * pos.x, 0.4 * pos.y, pos.z, 1.0);\n"
+		"gl_Position = model * vec4(0.4f * pos.x, 0.4f * pos.y, pos.z, 1.0);\n"
 	"}";
 
 static const char* fragmentShader =
@@ -105,7 +111,7 @@ int main()
 		return EXIT_FAILURE;
 	}
 
-	GLFWwindow* window = glfwCreateWindow(1024, 768, "my app", NULL, NULL);
+	GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "my app", NULL, NULL);
 	if (!window) {
 		std::cerr << "Unable to create window\n";
 		glfwTerminate();
@@ -134,8 +140,16 @@ int main()
 			triOffset -= triIncrement;
 		}
 
-		if (abs(triOffset) >= triMaxOffset) {
+		if (abs(triOffset) >= triMaxOffset) 
+		{
 			direction = !direction;
+		}
+
+		curAngle += 0.01f;
+
+		if (curAngle >= 360)
+		{
+			curAngle -= 360;
 		}
 
 		glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
@@ -146,6 +160,8 @@ int main()
 
 		glm::mat4 model(1.0f);
 		model = glm::translate(model, glm::vec3(triOffset, 0.0f, 0.0f));
+		model = glm::rotate(model, curAngle * toRadians, glm::vec3(0.0f, 0.0f, 1.0f));
+
 		glUniformMatrix4fv(uniformModel, 1, GL_FALSE, glm::value_ptr(model));
 
 		glBindVertexArray(VAO);
