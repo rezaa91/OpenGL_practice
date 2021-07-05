@@ -1,4 +1,5 @@
 #include <iostream>
+#include <array>
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
@@ -8,7 +9,7 @@
 const GLuint WIDTH = 1024, HEIGHT = 768;
 const float toRadians = 3.14159265f / 180.0f;
 
-GLuint VAO, VBO, shader, uniformModel;
+GLuint VAO, VBO, IBO, shader, uniformModel, uniformProjection;
 
 bool direction = true;
 float triOffset = 0.0f;
@@ -25,22 +26,35 @@ float minSize = 0.1f;
 // shaders
 static const char* vertexShader =
 	"#version 330\n"
+	"out vec4 vCol;\n"
 	"layout(location = 0) in vec3 pos;\n"
 	"uniform mat4 model;\n"
+	"uniform mat4 projection;\n"
 	"void main() {\n"
-		"gl_Position = model * vec4(pos, 1.0);\n"
+		"gl_Position = projection * model * vec4(pos, 1.0);\n"
+		"vCol = vec4(clamp(pos, 0.0f, 1.0f), 1.0f);\n"
 	"}";
 
 static const char* fragmentShader =
 	"#version 330\n"
+	"in vec4 vCol;\n"
 	"out vec4 color;\n"
 	"void main() {\n"
-		"color = vec4(1.0f, 0.0f, 0.0f, 1.0f);\n"
+		"color = vCol;\n"
 	"}";
 
-void createTriangle() {
-	float vertices[9] = {
+void createTriangle()
+{
+	unsigned int indices[] = {
+		0, 3, 1,
+		1, 3, 2,
+		2, 3, 0,
+		0, 1, 2
+	};
+
+	float vertices[] = {
 		-1.0f, -1.0f, 0.0f,
+		0.0f, -1.0f, 1.0f,
 		1.0f, -1.0f, 0.0f,
 		0.0f, 1.0f, 0.0f
 	};
@@ -48,6 +62,11 @@ void createTriangle() {
 	// VAO
 	glGenVertexArrays(1, &VAO);
 	glBindVertexArray(VAO);
+
+	// IBO (index buffer)
+	glGenBuffers(1, &IBO);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 
 	// VBO
 	glGenBuffers(1, &VBO);
@@ -59,6 +78,7 @@ void createTriangle() {
 
 	// unbind VAO and VBO
 	glBindBuffer(GL_ARRAY_BUFFER, 0);
+
 	glBindVertexArray(0);
 }
 
@@ -107,6 +127,7 @@ void compileShaders() {
 	}
 
 	uniformModel = glGetUniformLocation(shader, "model");
+	uniformProjection = glGetUniformLocation(shader, "projection");
 }
 
 int main()
@@ -123,16 +144,26 @@ int main()
 		return EXIT_FAILURE;
 	}
 
+	int bufferWidth, bufferHeight;
+	glfwGetFramebufferSize(window, &bufferWidth, &bufferHeight);
+
 	glfwMakeContextCurrent(window);
 	
+	glewExperimental = true;
 	if (glewInit() != GLEW_OK) {
 		std::cerr << "glew not initialised\n";
 		glfwTerminate();
 		return EXIT_FAILURE;
 	}
 
+	glEnable(GL_DEPTH_TEST);
+
+	glViewport(0, 0, bufferWidth, bufferHeight);
+
 	createTriangle();
 	compileShaders();
+
+	glm::mat4 projection = glm::perspective(45.0f, (GLfloat)bufferWidth/(GLfloat)bufferHeight, 0.1f, 100.0f);
 
 	// game loop
 	while (!glfwWindowShouldClose(window)) {
@@ -170,23 +201,26 @@ int main()
 			sizeDirection = !sizeDirection;
 		}
 		glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
-		glClear(GL_COLOR_BUFFER_BIT);
+		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 		// draw!
 		glUseProgram(shader);
 
 		glm::mat4 model(1.0f);
-		model = glm::rotate(model, curAngle * toRadians, glm::vec3(0.0f, 0.0f, 1.0f));
-		model = glm::translate(model, glm::vec3(triOffset, 0.0f, 0.0f));
-		model = glm::scale(model, glm::vec3(curSize, curSize, 1.0f));
+		model = glm::translate(model, glm::vec3(0.0f, 0.0f, -2.5f));
+		model = glm::rotate(model, curAngle * toRadians, glm::vec3(0.0f, 1.0f, 0.0f));
+		model = glm::scale(model, glm::vec3(0.4f, 0.4f, 1.0f));
 
 		glUniformMatrix4fv(uniformModel, 1, GL_FALSE, glm::value_ptr(model));
+		glUniformMatrix4fv(uniformProjection, 1, GL_FALSE, glm::value_ptr(projection));
 
 		glBindVertexArray(VAO);
-		glDrawArrays(GL_TRIANGLES, 0, 3);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IBO);
+		glDrawElements(GL_TRIANGLES, 12, GL_UNSIGNED_INT, 0);				// 12 for indices
 
 		// clear shader
 		glBindVertexArray(0);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 		glUseProgram(0);
 
 		glfwSwapBuffers(window);
