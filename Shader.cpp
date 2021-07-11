@@ -1,48 +1,20 @@
 #include "Shader.h"
+#include "File.h"
 
 Shader::Shader()
 	:shaderID(0), uniformModel(0), uniformProjection(0)
 {
 }
 
-void Shader::createFromString(const char* vertexCode, const char* fragmentCode)
-{
-	compileShader(vertexCode, fragmentCode);
-}
-
 void Shader::createFromFiles(const char* vertexLocation, const char* fragmentLocation)
 {
-	std::string vertexString = readFile(vertexLocation);
-	std::string fragmentString = readFile(fragmentLocation);
+	std::string vertexString = File::readFile(vertexLocation);
+	std::string fragmentString = File::readFile(fragmentLocation);
 
 	const char* vertexCode = vertexString.c_str();
 	const char* fragmentCode = fragmentString.c_str();
 
 	compileShader(vertexCode, fragmentCode);
-}
-
-std::string Shader::readFile(const char* fileLocation)
-{
-	std::string	content;
-	std::ifstream fileStream(fileLocation, std::ios::in);
-
-	if (!fileStream.is_open())
-	{
-		std::cerr << "Failed to read " << fileLocation << "! File does not exist\n";
-		return "";
-	}
-
-	std::cout << "File read: " << fileLocation << std::endl;
-
-	std::string line = "";
-	while (!fileStream.eof())
-	{
-		std::getline(fileStream, line);
-		content.append(line + '\n');
-	}
-
-	fileStream.close();
-	return content;
 }
 
 GLuint Shader::getProjectionLocation()
